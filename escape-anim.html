@@ -1,0 +1,234 @@
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: auto;
+        }
+
+        body {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body onresize="drawCanvas()">
+    <canvas id="myCanvas-reverse"></canvas>
+    <canvas id="myCanvas"></canvas>
+    <canvas id="myMainCanvas"></canvas>
+
+    <script>
+        var myCanvas = document.getElementById("myCanvas");
+        setWidthAndHeight(myCanvas);
+        var myCanvasContext = myCanvas.getContext('2d');
+
+        var myCanvasReverse = document.getElementById("myCanvas-reverse");
+        setWidthAndHeight(myCanvasReverse);
+        var myCanvasReverseContext = myCanvasReverse.getContext('2d');
+
+        var myMainCanvas = document.getElementById("myMainCanvas");
+        setWidthAndHeight(myMainCanvas);
+        var ctx = myMainCanvas.getContext('2d');
+
+        var circleCenterX = myMainCanvas.width / 2;
+        var circleCenterY = myMainCanvas.height / 2;
+        var speedX = -1;
+        var speedY = -1;
+        var deviceExist = false;
+        var angle = 0;
+
+        function setWidthAndHeight(canvas) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('load', (event) => {
+            var d = new Date();
+            console.log(d.getMilliseconds());
+        });
+
+        function drawCanvas() {
+            setWidthAndHeight(myCanvas);
+            setWidthAndHeight(myCanvasReverse);
+            setWidthAndHeight(myMainCanvas);
+
+            myCanvasContext.clearRect(0, 0, myCanvas.width, myCanvas.height);
+            myCanvasReverseContext.clearRect(0, 0, myCanvasReverse.width, myCanvasReverse.height);
+            var values = drawStripe(myCanvasReverseContext, "white", "black");
+            myYPos = values[0];
+            maxWidth = values[1];
+            lineCount = values[2];
+            drawStripe(myCanvasContext, "black", "white");
+            //Keep the curve part of the circile to be black when resizing;
+            if (lineCount % 2 == 0) {
+                myPattern2 = ctx.createPattern(myCanvasReverse, "no-repeat");
+                myPattern = ctx.createPattern(myCanvas, "no-repeat");
+                myCanvas.style.display = "none";
+            } else {
+                myPattern = ctx.createPattern(myCanvasReverse, "no-repeat");
+                myPattern2 = ctx.createPattern(myCanvas, "no-repeat");
+            }
+
+            DrawCircle();
+        }
+
+        function getMaxR() {
+            if (window.innerWidth > window.innerHeight) {
+                return window.innerHeight / 2;
+            }
+            else {
+                return window.innerWidth / 2;
+            }
+        }
+
+        function drawStripe(myCanvasContext, color1, color2) {
+            var lineCount = 0;
+            var lineWidth = window.innerHeight / 100;
+            var startingYPos = window.innerHeight / 2;
+            var yPos1 = startingYPos + lineWidth / 2;
+            var yPos2 = startingYPos - lineWidth / 2;
+            var stopPos;
+            var stopLineWidth;
+            var maxR = getMaxR();
+            var countLine = true;
+            var countLoop = 0;
+            while (yPos2 > 0) {
+                myCanvasContext.fillStyle = color2;
+                myCanvasContext.fillRect(0, yPos2, window.innerWidth, lineWidth);
+                myCanvasContext.fillRect(0, yPos1 - lineWidth, window.innerWidth, lineWidth);
+                if (countLine == true) {
+                    lineCount++;
+                }
+                lineWidth *= 1.1;
+                yPos2 -= lineWidth;
+                yPos1 += lineWidth;
+                [color1, color2] = [color2, color1];
+                if (startingYPos - yPos2 > maxR && window.innerHeight > window.innerWidth) {
+                    countLoop += 1;
+                    if (countLoop == 1) {
+                        stopPos = yPos2;
+                        stopLineWidth = lineWidth;
+                        countLine = false;
+                    }
+                }
+            }
+            myCanvasContext.fillStyle = color2;
+            myCanvasContext.fillRect(0, yPos2, window.innerWidth, lineWidth);
+            myCanvasContext.fillRect(0, yPos1 - lineWidth, window.innerWidth, lineWidth);
+
+            if (window.innerHeight > window.innerWidth) {
+                return [stopPos, stopLineWidth, lineCount];
+            }
+            else {
+                return [yPos2, lineWidth, lineCount];
+            }
+        }
+
+
+        function DrawCircle() {
+            ctx.clearRect(0, 0, myMainCanvas.width, myMainCanvas.height);
+            var r;
+            var maxR = getMaxR();
+
+            //Draw cirlce
+            var currentX;
+            for (i = 0; i < lineCount - 2; i++) {
+                var outerR;
+                if (i % 2 == 0) {
+                    ctx.fillStyle = myPattern;
+                }
+                else {
+                    ctx.fillStyle = myPattern2;
+                }
+                ctx.beginPath();
+                if (i == 0) {
+                    outerR = window.innerHeight / 2 - (myYPos + maxWidth);
+                    r = outerR;
+                }
+                else {
+                    r -= maxWidth / (Math.pow(1.1, i));
+                }
+                currentX = circleCenterX + outerR - i * maxR / 100 - r;
+                ctx.save();
+                ctx.translate(circleCenterX,circleCenterY);
+                ctx.rotate((Math.PI / 180) * angle);
+                ctx.translate(-circleCenterX,-circleCenterY);
+                ctx.arc(currentX, circleCenterY  , r, 0, 2 * Math.PI, false);
+                ctx.restore();
+                ctx.fill();
+            }
+            
+            if (deviceExist == false) {
+                //Without motion divice
+                ctx.save();
+                ctx.translate(circleCenterX,circleCenterY);
+                ctx.rotate((Math.PI / 180) * angle);
+                if ((currentX - r) < 0 || (currentX + r) > myMainCanvas.width) {
+                    speedX = -speedX;
+                }
+                if (circleCenterY - r < 0 || circleCenterY + r > myMainCanvas.height) {
+                    speedY = -speedY;
+                }
+                ctx.restore();
+        
+                circleCenterX += speedX;
+                circleCenterY += speedY;
+                angle+=0.5;
+                
+            } 
+            //With motion device
+            else {
+                if (currentX - r + speedX < 0 || currentX + r + speedX > myMainCanvas.width) {
+                    speedX = 0;
+                }
+                if (circleCenterY - r + speedY < 0 || circleCenterY + speedY + r > myMainCanvas.height) {
+                    speedY = 0;
+                }
+                circleCenterX += speedX;
+                circleCenterY += speedY;
+                // angle+=0.5;
+                
+            }
+
+        }
+
+        drawCanvas();
+        function animate() {
+            requestAnimationFrame(animate);
+            DrawCircle();
+        }
+        animate();
+        
+
+        window.addEventListener('devicemotion', function (event) {
+            deviceExist = true;
+            speedX = event.accelerationIncludingGravity.x * 0.2;
+            speedY = event.accelerationIncludingGravity.y * -0.2;
+            angle = angle + Math.atan2(-speedY, speedX) * (180 / Math.PI) /200;
+        });
+
+        document.addEventListener('readystatechange', (event) => {
+            var d = new Date();
+            console.log(d.getMilliseconds());
+        });
+
+
+
+
+    </script>
+</body>
+
+</html>
